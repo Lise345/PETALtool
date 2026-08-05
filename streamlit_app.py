@@ -1621,6 +1621,15 @@ elif step.startswith("5"):
         "Review the scores, explore what-if scenarios with your stakeholders,"
         " and capture the trade-offs you are willing to accept."
     )
+    try:
+        to_research = collect_to_research(project)
+        unknown_factors = collect_unknown_factors(project)
+    
+        st.write("DEBUG TO_RESEARCH:", to_research)
+        st.write("DEBUG UNKNOWN:", unknown_factors)
+    
+    except Exception as e:
+        st.exception(e)
 
     # --- Guard: need 3×3 selected factors ---
     all9 = (
