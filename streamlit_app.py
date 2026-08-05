@@ -1621,6 +1621,7 @@ elif step.startswith("5"):
         "Review the scores, explore what-if scenarios with your stakeholders,"
         " and capture the trade-offs you are willing to accept."
     )
+
     # --- Guard: need 3×3 selected factors ---
     all9 = (
         project.selected_factors.get("Environmental", [])
@@ -1783,7 +1784,6 @@ elif step.startswith("5"):
             st.info("No valid best/worst stage yet — check your scores in Step 4.")
 
 
-
     col_1, col_2, col_3 = st.columns([1, 1, 1])
     with col_1:
         st.markdown("#### Assumptions of the analysis")
@@ -1822,55 +1822,6 @@ elif step.startswith("5"):
                         st.markdown(f"> {note}")
         else:
             st.caption("No unknown factors identified.")
-
-    # --- Uncertainty barometer ---
-    # Count unique lifecycle stages containing at least one explicitly flagged
-    # "I don't know" or "Yet to be researched" factor. A stage appearing in
-    # both lists is counted only once.
-    unknown_stage_names = set(unknown_factors.keys())
-    research_stage_names = set(to_research.keys())
-    uncertain_stage_names = unknown_stage_names | research_stage_names
-
-    total_stage_count = len(project.lifecycle_stages)
-    uncertain_stage_count = len(uncertain_stage_names)
-    uncertainty_pct = (
-        (uncertain_stage_count / total_stage_count) * 100
-        if total_stage_count
-        else 0.0
-    )
-
-    if uncertainty_pct > 30:
-        uncertainty_color = "#c62828"  # red
-        uncertainty_label = "High uncertainty"
-    elif uncertainty_pct > 10:
-        uncertainty_color = "#f57c00"  # orange
-        uncertainty_label = "Moderate uncertainty"
-    else:
-        uncertainty_color = "#2e7d32"  # green
-        uncertainty_label = "Low uncertainty"
-
-    st.markdown("#### Uncertainty barometer")
-    st.markdown(
-        f"""
-        <div style="border:1px solid #e4e4e7;border-radius:14px;padding:1rem 1.25rem;background:#fafafa;">
-            <div style="display:flex;justify-content:space-between;gap:1rem;align-items:baseline;margin-bottom:.55rem;">
-                <strong>{uncertainty_label}</strong>
-                <span>{uncertain_stage_count} of {total_stage_count} stages ({uncertainty_pct:.0f}%)</span>
-            </div>
-            <div style="width:100%;height:16px;background:#e5e7eb;border-radius:999px;overflow:hidden;">
-                <div style="width:{min(uncertainty_pct, 100):.1f}%;height:100%;background:{uncertainty_color};border-radius:999px;"></div>
-            </div>
-            <div style="display:flex;justify-content:space-between;gap:1rem;margin-top:.55rem;color:#4b5563;font-size:.9rem;">
-                <span>Unknown stages: {len(unknown_stage_names)}</span>
-                <span>Yet to be researched stages: {len(research_stage_names)}</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.warning(
-        "Be careful, the unknown stages might be important to your early stage development."
-    )
     
     # --- Trade-offs & what-if scenarios ---
     st.markdown("##  Trade-offs & what-if scenarios")
