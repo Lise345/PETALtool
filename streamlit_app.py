@@ -424,26 +424,21 @@ def render_landing():
     with cc1:
         st.markdown("##### Step 1: TRL & actors")
         st.info("Identify TRL and **who to involve** (devs, experts, industry, etc.).")
-        st.info("")
     with cc2:
         st.markdown("##### Step 2: Scoping & lifecycle")
         st.info("Define **core function** and **functional unit**; map a **lean lifecycle**.")
-        st.info("")
     with cc3:
         st.markdown("##### Step 3: Factors → Scores → Hot-spots")
         st.info(
             "Pick 3 factors per pillar (Environmental, Social, Economic). "
         )
-        st.info("")
     cc4, cc5, cc6 = st.columns(3)
     with cc4:
         st.markdown("##### Step 4: Scoring the system")
         st.info("Score each factor at each lifecycle stage (1=Measurably Worse ... 5=Measurably Better).")
-        st.info("")
     with cc5:
         st.markdown("##### Step 5: Results & plots")
         st.info("See average scores per stage & factor, identify hot-spots, and explore trade-offs.")
-        st.info("")
     with cc6:
         st.markdown("##### Example project")
         with st.expander("Download example project file"):
@@ -1799,6 +1794,7 @@ elif step.startswith("5"):
             st.caption("No assumptions recorded.")
     
     with col_2:
+        to_research = collect_to_research(project)
         st.markdown("#### Yet to be researched")
     
         if to_research:
@@ -1812,6 +1808,7 @@ elif step.startswith("5"):
                         st.markdown(f"> {note}")
     
     with col_3:
+        unknown_factors = collect_unknown_factors(project)
         st.markdown("#### Unknown factors")
     
         if unknown_factors:
