@@ -1,3 +1,50 @@
+ChatGPT
+
+
+
+
+
+Invite team members
+
+streamlit_app (5).py
+Python
+Is it possible to add a 'uncertainty barometer' showing the number of unknown + yet to be researched stages and turn from green to orange to red when > 10% and > 30%. Do this beneath the listing of the assumptions etc in step 5. Also include a text saying: be careful, the unknown stages might be important to your early stage development
+
+Worked for 38s
+Added beneath the Step 5 assumptions/research/unknown listings. It now:
+
+Counts unique stages containing “Unknown” or “Yet to be researched” factors.
+
+Shows flagged stages / total stages and the percentage.
+
+Uses green ≤10%, orange >10%, and red >30%.
+
+Avoids double-counting stages present in both categories.
+
+Includes the requested warning text.
+
+Passes Python syntax validation.
+
+Based on the uploaded Streamlit app. 
+
+
+streamlit_app_uncertainty_barometer.py
+
+
+streamlit_app_uncertainty_barometer.py
+Code
+
+Take this further in ChatGPT Work
+Turn your work into a polished document, deck, spreadsheet, report, or website.
+
+Try Work
+
+
+Library
+/
+streamlit_app_uncertainty_barometer.py
+
+
 from __future__ import annotations
 
 
@@ -1822,6 +1869,55 @@ elif step.startswith("5"):
                         st.markdown(f"> {note}")
         else:
             st.caption("No unknown factors identified.")
+
+    # --- Uncertainty barometer ---
+    # Count unique lifecycle stages containing at least one explicitly flagged
+    # "I don't know" or "Yet to be researched" factor. A stage appearing in
+    # both lists is counted only once.
+    unknown_stage_names = set(unknown_factors.keys())
+    research_stage_names = set(to_research.keys())
+    uncertain_stage_names = unknown_stage_names | research_stage_names
+
+    total_stage_count = len(project.lifecycle_stages)
+    uncertain_stage_count = len(uncertain_stage_names)
+    uncertainty_pct = (
+        (uncertain_stage_count / total_stage_count) * 100
+        if total_stage_count
+        else 0.0
+    )
+
+    if uncertainty_pct > 30:
+        uncertainty_color = "#c62828"  # red
+        uncertainty_label = "High uncertainty"
+    elif uncertainty_pct > 10:
+        uncertainty_color = "#f57c00"  # orange
+        uncertainty_label = "Moderate uncertainty"
+    else:
+        uncertainty_color = "#2e7d32"  # green
+        uncertainty_label = "Low uncertainty"
+
+    st.markdown("#### Uncertainty barometer")
+    st.markdown(
+        f"""
+        <div style="border:1px solid #e4e4e7;border-radius:14px;padding:1rem 1.25rem;background:#fafafa;">
+            <div style="display:flex;justify-content:space-between;gap:1rem;align-items:baseline;margin-bottom:.55rem;">
+                <strong>{uncertainty_label}</strong>
+                <span>{uncertain_stage_count} of {total_stage_count} stages ({uncertainty_pct:.0f}%)</span>
+            </div>
+            <div style="width:100%;height:16px;background:#e5e7eb;border-radius:999px;overflow:hidden;">
+                <div style="width:{min(uncertainty_pct, 100):.1f}%;height:100%;background:{uncertainty_color};border-radius:999px;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:1rem;margin-top:.55rem;color:#4b5563;font-size:.9rem;">
+                <span>Unknown stages: {len(unknown_stage_names)}</span>
+                <span>Yet to be researched stages: {len(research_stage_names)}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.warning(
+        "Be careful, the unknown stages might be important to your early stage development."
+    )
     
     # --- Trade-offs & what-if scenarios ---
     st.markdown("##  Trade-offs & what-if scenarios")
