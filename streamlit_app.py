@@ -695,7 +695,7 @@ def collect_unknown_factors(project) -> Dict[str, List[str]]:
         unknown = [
             factor
             for factor, fs in fdict.items()
-            if fs.score is None
+            if getattr(fs, "score", None) is None
         ]
 
         if unknown:
