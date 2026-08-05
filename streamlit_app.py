@@ -1621,16 +1621,6 @@ elif step.startswith("5"):
         "Review the scores, explore what-if scenarios with your stakeholders,"
         " and capture the trade-offs you are willing to accept."
     )
-    try:
-        to_research = collect_to_research(project)
-        unknown_factors = collect_unknown_factors(project)
-    
-        st.write("DEBUG TO_RESEARCH:", to_research)
-        st.write("DEBUG UNKNOWN:", unknown_factors)
-    
-    except Exception as e:
-        st.exception(e)
-
     # --- Guard: need 3×3 selected factors ---
     all9 = (
         project.selected_factors.get("Environmental", [])
@@ -1792,93 +1782,6 @@ elif step.startswith("5"):
         else:
             st.info("No valid best/worst stage yet — check your scores in Step 4.")
 
-    # --------------- Uncertainty barometer ---------------
-    
-    to_research = collect_to_research(project)
-    unknown_factors = collect_unknown_factors(project)
-    
-    # Count assessed factor-stage combinations
-    total_assessments = 0
-    for stage, fdict in project.grid.items():
-        total_assessments += len(fdict)
-    
-    # Count uncertainty entries
-    n_research = sum(len(v) for v in to_research.values())
-    n_unknown = sum(len(v) for v in unknown_factors.values())
-    
-    # Avoid double counting if a factor is both unknown and to_research
-    n_uncertain = n_research + n_unknown
-    
-    uncertainty_pct = (
-        (n_uncertain / total_assessments) * 100
-        if total_assessments > 0
-        else 0
-    )
-    
-    # Determine status
-    if uncertainty_pct < 10:
-        bar_color = "#2e7d32"  # green
-        label = "Low uncertainty"
-    elif uncertainty_pct < 30:
-        bar_color = "#ed6c02"  # orange
-        label = "Moderate uncertainty"
-    else:
-        bar_color = "#d32f2f"  # red
-        label = "High uncertainty"
-    
-    st.markdown("### 🔍 Uncertainty Barometer")
-    
-    st.markdown(
-        f"""
-        <div style="
-            width:100%;
-            background:#e0e0e0;
-            border-radius:10px;
-            height:25px;
-            overflow:hidden;
-        ">
-          <div style="
-              width:{min(uncertainty_pct,100)}%;
-              background:{bar_color};
-              height:25px;
-          ">
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    
-    st.markdown(
-        f"""
-        <p style="margin-top:0.5rem;">
-            <b>{label}</b> ({uncertainty_pct:.1f}% of factor-stage assessments)
-        </p>
-        """,
-        unsafe_allow_html=True,
-    )
-    
-    st.caption(
-        f"{n_unknown} unknown factors • "
-        f"{n_research} factors requiring further research • "
-        f"{total_assessments} total factor-stage assessments"
-    )
-    
-    if uncertainty_pct >= 30:
-        st.error(
-            "⚠️ Be careful. A substantial number of factors remain unknown or require further research. "
-            "These factors may be important for the successful early-stage development of your technology."
-        )
-    
-    elif uncertainty_pct >= 10:
-        st.warning(
-            "⚠️ Some factors remain unknown or require further research. "
-            "Consider addressing these knowledge gaps before making important development decisions."
-        )
-    
-    else:
-        st.success(
-            "✅ Most factors have been assessed and only a limited number of knowledge gaps remain."
-        )
 
 
     col_1, col_2, col_3 = st.columns([1, 1, 1])
