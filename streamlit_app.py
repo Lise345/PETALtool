@@ -688,15 +688,21 @@ def collect_to_research(project) -> Dict[str, List[str]]:
             out[stage] = pending
     return out
 
-def collect_unknown_factors(project) -> Dict[str, List[str]]:
+def collect_unknown_factors(project):
     out = {}
 
     for stage, fdict in project.grid.items():
-        unknown = [
-            factor
-            for factor, fs in fdict.items()
-            if getattr(fs, "score", None) is None
-        ]
+        unknown = []
+
+        for factor, fs in fdict.items():
+
+            if isinstance(fs, dict):
+                score = fs.get("score")
+            else:
+                score = fs.score
+
+            if score is None:
+                unknown.append(factor)
 
         if unknown:
             out[stage] = unknown
