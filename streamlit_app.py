@@ -239,9 +239,10 @@ SCORE_COLORS = {
 # -------------------------------
 @dataclass
 class FactorScore:
-    score: Optional[float] = None   # None = “I don’t know”
+    score: Optional[float] = None
     note: str = ""
-    to_research: bool = False # flag for “needs more research”
+    to_research: bool = False
+    unknown: bool = False
 
 @dataclass
 class Project:
@@ -688,21 +689,14 @@ def collect_to_research(project) -> Dict[str, List[str]]:
             out[stage] = pending
     return out
 
-def collect_unknown_factors(project):
+def collect_unknown_factors(project) -> Dict[str, List[str]]:
     out = {}
 
     for stage, fdict in project.grid.items():
-        unknown = []
-
-        for factor, fs in fdict.items():
-
-            if isinstance(fs, dict):
-                score = fs.get("score")
-            else:
-                score = fs.score
-
-            if score is None:
-                unknown.append(factor)
+        unknown = [
+            f for f, fs in fdict.items()
+            if getattr(fs, "unknown", False)
+        ]
 
         if unknown:
             out[stage] = unknown
@@ -1595,13 +1589,15 @@ elif step.startswith("4"):
                         if state == "Scored":
                             fs.score = float(new_val)
                             fs.to_research = False
+                            fs.unknown = False
                         elif state == "I don’t know":
                             fs.score = None
                             fs.to_research = False
+                            fs.unknown = True
                         else:  # "Yet to be researched"
                             fs.score = None
                             fs.to_research = True
-
+                            fs.unknown = False
                         fs.note = st.text_area(
                             f"Justification for {fname}",
                             value=fs.note,
