@@ -16,7 +16,7 @@ import pathlib
 import plotly.graph_objects as go
 import numpy as np
 
-APP_TITLE = "SEED — Sustainability Evaluation for Early-stage Decisions"
+APP_TITLE = "PETAL - Participatory Evaluation Tool for Analysis from an early Lifestage"
 APP_TAGLINE = "Project-based scoping for new materials & products"
 
 # -------------------------------
@@ -320,7 +320,7 @@ def hex_to_rgba(hex_color: str, alpha: float) -> str:
     b = int(hex_color[4:6], 16)
     return f"rgba({r},{g},{b},{alpha})"
 
-def _new_project_name(base="New SEED Project"):
+def _new_project_name(base="New PETAL Project"):
     # create a unique default project name if the user clicks the CTA
     existing = set(st.session_state.get("projects", {}).keys())
     if base not in existing:
@@ -398,7 +398,7 @@ def render_landing():
         st.markdown("#### Interpreting results")
         st.markdown(
             "- Sustainability is a **balance**: improvements in one factor may worsen another.\n"
-            "- The goal of SEED is **not** to make everything green, but to make **transparent trade-off decisions** "
+            "- The goal of PETAL is **not** to make everything green, but to make **transparent trade-off decisions** "
             "between factors and stages.\n"
             "- Plots are **centered at a baseline of 3 (Equal)**, so left = worse, right = better.\n"
             "- We highlight **worst-performing stages** early so you can iterate design choices and **build alternative scenarios**."
@@ -465,9 +465,9 @@ def render_landing():
     # ➕ Create new
     with cta1:
         st.subheader("Start a new project")
-        name = st.text_input("Project name", value="New SEED Project") 
+        name = st.text_input("Project name", value="New PETAL Project") 
         desc = st.text_area("Short description", value="")
-        if st.button("➕ Start a new SEED project", use_container_width=True, type="primary"):
+        if st.button("➕ Start a new PETAL project", use_container_width=True, type="primary"):
             name = _new_project_name()
             st.session_state.projects[name] = Project(name=name, description="")
             st.session_state.active_project = name
@@ -1024,7 +1024,7 @@ with st.sidebar:
 
 
 
-st.set_page_config(page_title="SEED", page_icon="🌱", layout="wide")
+st.set_page_config(page_title="PETAL", page_icon="🌱", layout="wide")
 
 st.markdown(
     """
@@ -1039,7 +1039,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-svg_path = pathlib.Path("assets/seed_logo.svg")
+svg_path = pathlib.Path("assets/petal_logo.svg")
 svg_markup = svg_path.read_text(encoding="utf-8")
 
 st.markdown(f'<div class="seed-header">{svg_markup}</div>', unsafe_allow_html=True)
@@ -2140,7 +2140,7 @@ elif step.startswith("5"):
 
     with c_json:
         st.markdown("**Results JSON**")
-        st.caption("For re-loading into SEED or running your own analysis.")
+        st.caption("For re-loading into PETAL or running your own analysis.")
         st.download_button(
             "⬇️ Download JSON",
             data=json.dumps(export, indent=2),
@@ -2158,7 +2158,7 @@ elif step.startswith("5"):
         core_function: str,
     ) -> str:
         lines = []
-        lines.append(f"# {project.name} — SEED report")
+        lines.append(f"# {project.name} — PETAL report")
         lines.append("")
         lines.append(f"**TRL:** {project.trl}")
         if core_function.strip():
@@ -2265,7 +2265,7 @@ elif step.startswith("5"):
                 functional_unit=project.functional_unit,
                 core_function=project.core_function,
             ),
-            file_name=f"{project.name.replace(' ','_')}_SEED_report.md",
+            file_name=f"{project.name.replace(' ','_')}_PETAL_report.md",
             mime="text/markdown",
             use_container_width=True,
         )
