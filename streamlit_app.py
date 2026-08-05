@@ -1783,7 +1783,7 @@ elif step.startswith("5"):
         else:
             st.info("No valid best/worst stage yet — check your scores in Step 4.")
 
-    ###### Uncertainty barometer ###### 
+    # --------------- Uncertainty barometer ---------------
     
     to_research = collect_to_research(project)
     unknown_factors = collect_unknown_factors(project)
