@@ -259,6 +259,7 @@ class Project:
     scenario_scores: Dict[str, Dict[str, float]] = field(default_factory=dict)
     
     assumptions: List[str] = field(default_factory=list)
+    unknown_factors: List[str] = field(default_factory=list)
 
     # --- restore this! ---
     def ensure_grid(self, all_factors: List[str]) -> None:
