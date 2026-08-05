@@ -687,6 +687,21 @@ def collect_to_research(project) -> Dict[str, List[str]]:
             out[stage] = pending
     return out
 
+def collect_unknown_factors(project) -> Dict[str, List[str]]:
+    out = {}
+
+    for stage, fdict in project.grid.items():
+        unknown = [
+            factor
+            for factor, fs in fdict.items()
+            if fs.score is None
+        ]
+
+        if unknown:
+            out[stage] = unknown
+
+    return out
+
 def category_means(project, avg_factor: dict) -> dict:
     out = {}
     for cat in ("Environmental", "Social", "Economic"):
@@ -1763,7 +1778,7 @@ elif step.startswith("5"):
             st.info("No valid best/worst stage yet — check your scores in Step 4.")
 
 
-    col_1, col_2 = st.columns([1, 1])
+    col_1, col_2, col_3 = st.columns([1, 1, 1])
     with col_1:
         st.markdown("#### Assumptions of the analysis")
         if getattr(project, "assumptions", None):
@@ -1771,10 +1786,10 @@ elif step.startswith("5"):
                 st.markdown(f"{i}. {a}")
         else:
             st.caption("No assumptions recorded.")
-
+    
     with col_2:
         to_research = collect_to_research(project)
-
+    
         st.markdown("#### Yet to be researched")
         if to_research:
             for stage, factors in to_research.items():
@@ -1782,7 +1797,19 @@ elif step.startswith("5"):
                 for f in factors:
                     st.markdown(f"- {f}")
         else:
-            st.caption("Nothing flagged as ‘yet to be researched’.")
+            st.caption("Nothing flagged as 'yet to be researched'.")
+    
+    with col_3:
+        unknown_factors = collect_unknown_factors(project)
+    
+        st.markdown("#### Unknown factors")
+        if unknown_factors:
+            for stage, factors in unknown_factors.items():
+                st.markdown(f"**{stage}**")
+                for f in factors:
+                    st.markdown(f"- {f}")
+        else:
+            st.caption("No unknown factors identified.")
     
     # --- Trade-offs & what-if scenarios ---
     st.markdown("##  Trade-offs & what-if scenarios")
