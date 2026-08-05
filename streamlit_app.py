@@ -681,20 +681,28 @@ def assumptions_sidebar_block(project, coral_hex="#FF6F61"):
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-def collect_to_research(project) -> Dict[str, List[str]]:
+def collect_to_research(project):
     out = {}
+
     for stage, fdict in project.grid.items():
-        pending = [f for f, fs in fdict.items() if getattr(fs, "to_research", False)]
+        pending = [
+            (factor, fs.note)
+            for factor, fs in fdict.items()
+            if getattr(fs, "to_research", False)
+        ]
+
         if pending:
             out[stage] = pending
+
     return out
 
-def collect_unknown_factors(project) -> Dict[str, List[str]]:
+def collect_unknown_factors(project):
     out = {}
 
     for stage, fdict in project.grid.items():
         unknown = [
-            f for f, fs in fdict.items()
+            (factor, fs.note)
+            for factor, fs in fdict.items()
             if getattr(fs, "unknown", False)
         ]
 
@@ -1791,26 +1799,30 @@ elif step.startswith("5"):
             st.caption("No assumptions recorded.")
     
     with col_2:
-        to_research = collect_to_research(project)
-    
         st.markdown("#### Yet to be researched")
+    
         if to_research:
             for stage, factors in to_research.items():
                 st.markdown(f"**{stage}**")
-                for f in factors:
-                    st.markdown(f"- {f}")
-        else:
-            st.caption("Nothing flagged as 'yet to be researched'.")
+    
+                for factor, note in factors:
+                    st.markdown(f"- {factor}")
+    
+                    if note:
+                        st.markdown(f"> {note}")
     
     with col_3:
-        unknown_factors = collect_unknown_factors(project)
-    
         st.markdown("#### Unknown factors")
+    
         if unknown_factors:
             for stage, factors in unknown_factors.items():
                 st.markdown(f"**{stage}**")
-                for f in factors:
-                    st.markdown(f"- {f}")
+    
+                for factor, note in factors:
+                    st.markdown(f"- {factor}")
+    
+                    if note:
+                        st.markdown(f"> {note}")
         else:
             st.caption("No unknown factors identified.")
     
