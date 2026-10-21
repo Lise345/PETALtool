@@ -16,6 +16,15 @@ import pathlib
 import plotly.graph_objects as go
 import numpy as np
 
+# Configure the page before any other Streamlit UI/state commands. Keep
+# the sidebar expanded initially; users can still collapse/reopen it normally.
+st.set_page_config(
+    page_title="PETAL",
+    page_icon="🌱",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 APP_TITLE = "PETAL - Participatory Evaluation Tool for Analysis from an early Lifestage"
 APP_TAGLINE = "Project-based scoping for new materials & products"
 
@@ -30,6 +39,29 @@ WORKFLOW_STEPS = [
     "4) Scoring grid",
     "5) Results & plots",
 ]
+
+
+def _set_workflow_step(index: int) -> None:
+    """Synchronize the active page and the sidebar's radio-button value.
+
+    Call from a widget callback (before widgets are rendered), or when no
+    project/sidebar radio is displayed (e.g. starting a new project).
+    """
+    index = max(0, min(int(index), len(WORKFLOW_STEPS) - 1))
+    st.session_state.step_idx = index
+    st.session_state.workflow_radio = WORKFLOW_STEPS[index]
+
+
+def _on_workflow_radio_change() -> None:
+    """Make sidebar selections update the canonical active workflow step."""
+    selected = st.session_state.workflow_radio
+    if selected in WORKFLOW_STEPS:
+        st.session_state.step_idx = WORKFLOW_STEPS.index(selected)
+
+
+def _move_workflow_step(offset: int) -> None:
+    """Back/Next callback: runs before the sidebar radio is recreated."""
+    _set_workflow_step(st.session_state.get("step_idx", 0) + offset)
 
 
 TRL_TABLE = [
@@ -488,7 +520,7 @@ def render_landing():
             name = _new_project_name()
             st.session_state.projects[name] = Project(name=name, description="")
             st.session_state.active_project = name
-            st.session_state.step_idx = 0
+            _set_workflow_step(0)
             st.success(f"Created project “{name}”.")
             st.rerun()
 
@@ -507,7 +539,7 @@ def render_landing():
                 proj.coerce_grid()
                 st.session_state.projects[proj.name] = proj
                 st.session_state.active_project = proj.name
-                st.session_state.step_idx = 0
+                _set_workflow_step(0)
                 st.success(f"Imported project “{proj.name}”.")
                 st.rerun()
             except Exception as e:
@@ -520,28 +552,36 @@ def render_landing():
             sel = st.selectbox("Open project", options=["<Select>"] + existing, index=0)
             if sel != "<Select>":
                 st.session_state.active_project = sel
-                st.session_state.step_idx = 0
+                _set_workflow_step(0)
                 st.rerun()
 
 def bottom_nav(total_steps=len(WORKFLOW_STEPS)):
     st.markdown("---")
-    c1, c2, c3 = st.columns([1, 6, 1])
-    left_disabled  = st.session_state.step_idx <= 0
-    right_disabled = st.session_state.step_idx >= total_steps - 1
+    c1, _, c3 = st.columns([1, 6, 1])
+    idx = st.session_state.get("step_idx", 0)
 
+    # Callbacks execute before the next script run, so the sidebar radio is
+    # never left on the preceding step, and no widget state is changed after
+    # the corresponding radio widget has been rendered.
     with c1:
-        if st.button("⬅️ Back", use_container_width=True, disabled=left_disabled):
-            if st.session_state.step_idx > 0:
-                st.session_state.step_idx -= 1
-                st.rerun()
+        st.button(
+            "⬅️ Back",
+            use_container_width=True,
+            disabled=idx <= 0,
+            on_click=_move_workflow_step,
+            args=(-1,),
+        )
 
     with c3:
-        if st.button("Next ➡️", use_container_width=True, disabled=right_disabled):
-            if st.session_state.step_idx < total_steps - 1:
-                st.session_state.step_idx += 1
-                st.rerun()
+        st.button(
+            "Next ➡️",
+            use_container_width=True,
+            disabled=idx >= total_steps - 1,
+            on_click=_move_workflow_step,
+            args=(1,),
+        )
 
-    
+
 def factor_breakdown_plot(stage_name: str, breakdown: Dict[str, FactorScore]):
     # dict -> DataFrame
     df = pd.DataFrame(
@@ -1022,6 +1062,11 @@ if "projects" not in st.session_state:
     st.session_state.projects: Dict[str, Project] = {}
 if "active_project" not in st.session_state:
     st.session_state.active_project: Optional[str] = None
+if "step_idx" not in st.session_state:
+    st.session_state.step_idx = 0
+# Keep this synced on first load or after migration from an older session.
+if st.session_state.get("workflow_radio") not in WORKFLOW_STEPS:
+    st.session_state.workflow_radio = WORKFLOW_STEPS[st.session_state.step_idx]
 
 # -------------------------------
 # Sidebar: Project management
@@ -1036,10 +1081,9 @@ with st.sidebar:
         step = st.radio(
             "Navigate steps",
             options=WORKFLOW_STEPS,
-            index=st.session_state.step_idx,
             key="workflow_radio",
+            on_change=_on_workflow_radio_change,
         )
-        st.session_state.step_idx = WORKFLOW_STEPS.index(step)
 
         st.markdown("---")
         st.caption("Active project")
@@ -1059,13 +1103,12 @@ with st.sidebar:
 
 
 
-st.set_page_config(page_title="PETAL", page_icon="🌱", layout="wide")
-
 st.markdown(
     """
     <style>
     .block-container { padding-top: 1.0rem; }
-    header[data-testid="stHeader"] { display: none; }
+    /* Leave Streamlit's header visible: it contains the sidebar toggle.
+       Hiding the header makes a collapsed sidebar impossible to reopen. */
     footer { display: none; }
     .seed-header { display:flex; justify-content:center; margin: 0.25rem 0; }
     .seed-header svg { height: 194px; width:auto; }
