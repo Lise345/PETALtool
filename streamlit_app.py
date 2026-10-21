@@ -556,6 +556,7 @@ def factor_names(factors):
     return [f["name"] for f in factors]
 
 def score_band_color(score: float) -> str:
+    """Qualitative display bands: red <2.5; orange 2.5-3.5; green >3.5."""
     if score is None or (isinstance(score, float) and math.isnan(score)):
         return SCORE_COLORS["na"]
 
@@ -578,8 +579,9 @@ def to_plot_df(df: pd.DataFrame, cat_col: str, val_col: str) -> pd.DataFrame:
     return out
 
 def horizontal_delta_bar(plot_df: pd.DataFrame, title: str):
+    sorted_df = plot_df.sort_values("Delta")
     fig = px.bar(
-        plot_df.sort_values("Delta"),         # sorts so leftmost (worse) on top for readability
+        sorted_df,         # sorts so leftmost (worse) on top for readability
         x="Delta",
         y="Category",
         text="Label",
@@ -600,7 +602,7 @@ def horizontal_delta_bar(plot_df: pd.DataFrame, title: str):
     fig.update_traces(
         textposition="outside",
         hovertemplate="<b>%{y}</b><br>Score: %{customdata[0]:.2f}<extra></extra>",
-        customdata=plot_df[["Score"]].values,
+        customdata=sorted_df[["Score"]].values,
         marker_line_color="rgba(0,0,0,0.15)",
         marker_line_width=1,
     )
@@ -747,7 +749,8 @@ def seed_flower_overlay(baseline_cat_avg: dict, scenario_cat_avg: dict,
             return 0.0
         return max(0.0, min(1.0, (score - 1) / 4))
 
-    def petal_trace(cat, score, fillcolor, opacity=0.55):
+    def petal_trace(cat, score, fillcolor, opacity=0.55,
+                    legend_name=None, legend_group=None):
         r_max = score_to_radius(score)
 
         width = 40
@@ -769,7 +772,9 @@ def seed_flower_overlay(baseline_cat_avg: dict, scenario_cat_avg: dict,
             opacity=opacity,
             hovertemplate=f"<b>{cat}</b><br>avg {('n/a' if score is None or (isinstance(score,float) and math.isnan(score)) else f'{score:.2f}')}"
                           "<extra></extra>",
-            showlegend=False,
+            name=legend_name or cat,
+            legendgroup=legend_group,
+            showlegend=(legend_name is not None),
         )
 
     fig = go.Figure()
@@ -793,6 +798,8 @@ def seed_flower_overlay(baseline_cat_avg: dict, scenario_cat_avg: dict,
             score=s_score,
             fillcolor=hex_to_rgba(score_band_color(base_for_color), 0.30),  # underlay lighter
             opacity=1.0,
+            legend_name="Scenario: lighter petals" if cat == cats[0] else None,
+            legend_group="scenario",
         ))
 
     # 2) Baseline overlay petals (stronger)
@@ -804,6 +811,8 @@ def seed_flower_overlay(baseline_cat_avg: dict, scenario_cat_avg: dict,
             score=b_score,
             fillcolor=hex_to_rgba(score_band_color(base_for_color), 0.55),  # overlay stronger
             opacity=1.0,
+            legend_name="Baseline: darker petals / grey tips" if cat == cats[0] else None,
+            legend_group="baseline",
         ))
 
         # ✅ Grey dot at baseline tip (always on top)
@@ -843,7 +852,9 @@ def seed_flower_overlay(baseline_cat_avg: dict, scenario_cat_avg: dict,
                 direction="clockwise",
             ),
         ),
-        margin=dict(t=60, r=30, b=30, l=30),
+        margin=dict(t=60, r=30, b=90, l=30),
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="top", y=-0.08, xanchor="center", x=0.5),
     )
 
     return fig
@@ -892,7 +903,7 @@ def seed_flower_petal_chart(category_avg: dict, title=""):
         theta_closed = np.concatenate([thetas, thetas[::-1]])
         r_closed = np.concatenate([radii, np.zeros_like(radii)])
 
-        delta = None if (score is None or (isinstance(score,float) and math.isnan(score))) else (3 - score)
+        delta = None if (score is None or (isinstance(score,float) and math.isnan(score))) else (score - 3)
         sign = "" if (delta is None or delta < 0) else "+"
 
         hover = (
@@ -934,7 +945,7 @@ def seed_flower_petal_chart(category_avg: dict, title=""):
                 range=[0, 1],
                 tickmode="array",
                 tickvals=[0.0, 0.5, 1.0],
-                ticktext=["5", "3", "1"],
+                ticktext=["1 (centre)", "3 (reference)", "5 (outer)"],
                 showline=False,
             ),
             angularaxis=dict(
@@ -1699,7 +1710,9 @@ elif step.startswith("5"):
         st.caption(f"Coverage: all {assessed_cell_count} assessed factor-stage cells scored.")
 
     st.markdown("#### Trade-offs at a glance")
-    st.caption("Petal length shows relative performance (1 = much worse, 3 = baseline, 5 = much better).")
+    st.caption("Petal radius increases with score: 1 near the centre (worse), "
+               "3 at the dotted reference ring (equal), 5 at the outer edge (better). "
+               "Colour bands: red <2.5, orange 2.5-3.5, green >3.5; grey = unscored.")
     st.plotly_chart(seed_flower_petal_chart(cat_avg), use_container_width=True)
 
 
@@ -1744,7 +1757,7 @@ elif step.startswith("5"):
 
     with tab_stage:
         st.markdown("#### Average by lifecycle stage")
-        st.caption("Scores vs baseline 3: left = worse, right = better.")
+        st.caption("Scores relative to 3: left = worse, right = better.")
         fig1 = horizontal_delta_bar(stage_plot, "Average by lifecycle stage")
         st.plotly_chart(fig1, use_container_width=True)
         with st.expander("Stage averages", expanded=False):
@@ -2158,11 +2171,34 @@ elif step.startswith("5"):
         scenario_cat = category_means(project, scenario_avg_factor)
 
         st.markdown("##### Trade-offs overlay (baseline on top)")
-        st.caption("Scenario petals are shown underneath; baseline petals and dots stay visible on top.")
+        st.caption("Legend: lighter translucent petals show the scenario; darker petals "
+                   "and grey tip markers show the baseline. Petals extend outward "
+                   "for higher qualitative scores (1 centre; 3 reference; 5 outer edge).")
         st.plotly_chart(
             seed_flower_overlay(baseline_cat, scenario_cat, color_by="baseline"),
             use_container_width=True
-            )
+        )
+        scenario_changes = any(
+            abs(float(value) - float(project.grid.get(stage, {}).get(factor).score)) > 1e-9
+            for stage, factors in project.scenario_scores.items()
+            for factor, value in factors.items()
+            if project.grid.get(stage, {}).get(factor) is not None
+            and project.grid[stage][factor].score is not None
+        )
+        if not scenario_changes:
+            st.caption("No score-changing scenario has been entered; the scenario "
+                       "currently reproduces the available baseline scores.")
+        st.dataframe(
+            pd.DataFrame([
+                {"Dimension": cat,
+                 "Baseline (mean of factor means)": round(baseline_cat[cat], 2),
+                 "Scenario (mean of factor means)": round(scenario_cat[cat], 2),
+                 "Scenario minus baseline": round(scenario_cat[cat] - baseline_cat[cat], 2)}
+                for cat in ("Environmental", "Social", "Economic")
+            ]),
+            use_container_width=True,
+            hide_index=True,
+        )
 
 
     # ---------------- RIGHT: Trade-off notes + optional visual ----------------
@@ -2254,7 +2290,8 @@ elif step.startswith("5"):
 
     with c_json:
         st.markdown("**Results JSON**")
-        st.caption("For re-loading into PETAL or running your own analysis.")
+        st.caption("For external analysis. To re-import a project in PETAL, "
+                   "use 'Export active project' in the sidebar instead.")
         st.download_button(
             "⬇️ Download JSON",
             data=json.dumps(export, indent=2),
