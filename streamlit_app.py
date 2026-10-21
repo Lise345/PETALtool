@@ -276,20 +276,41 @@ class Project:
                 if f not in all_factors:
                     del stage_map[f]
 
+    def assessment_stages(self) -> List[str]:
+        """Match the stages shown in Step 4, excluding stale/archived grid rows.
+
+        If no stages are marked 'Will change?', Step 4 scores all current
+        lifecycle stages; the result calculations use the same fallback.
+        """
+        changed = [stage for stage in self.lifecycle_stages
+                   if self.lifecycle_changed.get(stage, False)]
+        return changed if changed else list(self.lifecycle_stages)
+
+    def assessment_grid(self) -> Dict[str, Dict[str, FactorScore]]:
+        """Only active stages and the nine currently selected factors."""
+        selected = set(sum((self.selected_factors.get(cat, [])
+                            for cat in ("Environmental", "Social", "Economic")), []))
+        return {
+            stage: {factor: fs for factor, fs in self.grid.get(stage, {}).items()
+                    if factor in selected}
+            for stage in self.assessment_stages()
+        }
+
     def average_by_stage(self) -> Dict[str, float]:
         out: Dict[str, float] = {}
-        for stage, facs in self.grid.items():
-            vals = [fs.score for fs in facs.values() if getattr(fs, "score", None) is not None] if facs else []
+        for stage, facs in self.assessment_grid().items():
+            vals = [fs.score for fs in facs.values()
+                    if getattr(fs, "score", None) is not None]
             out[stage] = statistics.mean(vals) if vals else float("nan")
         return out
 
     def average_by_factor(self) -> Dict[str, float]:
         acc: Dict[str, List[float]] = {}
-        for facs in self.grid.values():
-            for f, fs in facs.items():
+        for facs in self.assessment_grid().values():
+            for factor, fs in facs.items():
                 if getattr(fs, "score", None) is not None:
-                    acc.setdefault(f, []).append(fs.score)
-        return {f: statistics.mean(v) for f, v in acc.items()} if acc else {}
+                    acc.setdefault(factor, []).append(fs.score)
+        return {factor: statistics.mean(vals) for factor, vals in acc.items()}
 
     def overall_score(self) -> Optional[float]:
         avs = self.average_by_stage()
@@ -679,7 +700,7 @@ def assumptions_sidebar_block(project, coral_hex="#FF6F61"):
 def collect_to_research(project):
     out = {}
 
-    for stage, fdict in project.grid.items():
+    for stage, fdict in project.assessment_grid().items():
         pending = [
             (factor, fs.note)
             for factor, fs in fdict.items()
@@ -694,7 +715,7 @@ def collect_to_research(project):
 def collect_unknown_factors(project):
     out = {}
 
-    for stage, fdict in project.grid.items():
+    for stage, fdict in project.assessment_grid().items():
         unknown = [
             (factor, fs.note)
             for factor, fs in fdict.items()
@@ -1537,9 +1558,7 @@ elif step.startswith("4"):
     st.dataframe(legend, use_container_width=True)
 
     
-    stages_to_score = [s for s in project.lifecycle_stages if project.lifecycle_changed.get(s, False)]
-    if not stages_to_score:
-        stages_to_score = project.lifecycle_stages  # optional: fall back so the page isn't empty
+    stages_to_score = project.assessment_stages()
 
 
     for stage in stages_to_score:  # ← use filtered list
@@ -1657,6 +1676,28 @@ elif step.startswith("5"):
 
     cat_avg = category_means(project, avg_factor)
 
+    # --- Coverage note (computed from the same stage/factor set as all plots) ---
+    assessment_grid = project.assessment_grid()
+    assessed_cell_count = sum(len(factors) for factors in assessment_grid.values())
+    missing_cell_count = sum(
+        fs.score is None for factors in assessment_grid.values() for fs in factors.values()
+    )
+    flagged_cell_count = sum(
+        fs.score is None and (fs.unknown or fs.to_research)
+        for factors in assessment_grid.values() for fs in factors.values()
+    )
+    if missing_cell_count:
+        missing_pct = 100 * missing_cell_count / assessed_cell_count if assessed_cell_count else 0
+        st.info(
+            f"Coverage: {assessed_cell_count - missing_cell_count}/{assessed_cell_count} "
+            f"factor-stage cells scored; {missing_cell_count} unscored ({missing_pct:.1f}%), "
+            f"including {flagged_cell_count} explicitly flagged. "
+            "Unscored cells are excluded from the averages, and stage rankings may change "
+            "if additional scores become available."
+        )
+    else:
+        st.caption(f"Coverage: all {assessed_cell_count} assessed factor-stage cells scored.")
+
     st.markdown("#### Trade-offs at a glance")
     st.caption("Petal length shows relative performance (1 = much worse, 3 = baseline, 5 = much better).")
     st.plotly_chart(seed_flower_petal_chart(cat_avg), use_container_width=True)
@@ -1703,7 +1744,7 @@ elif step.startswith("5"):
 
     with tab_stage:
         st.markdown("#### Average by lifecycle stage")
-        st.caption("Scores vs baseline 3: left = better, right = worse.")
+        st.caption("Scores vs baseline 3: left = worse, right = better.")
         fig1 = horizontal_delta_bar(stage_plot, "Average by lifecycle stage")
         st.plotly_chart(fig1, use_container_width=True)
         with st.expander("Stage averages", expanded=False):
@@ -1831,7 +1872,7 @@ elif step.startswith("5"):
     research_stage_names = set(to_research.keys())
     uncertain_stage_names = unknown_stage_names | research_stage_names
 
-    total_stage_count = len(project.lifecycle_stages)
+    total_stage_count = len(project.assessment_stages())
     uncertain_stage_count = len(uncertain_stage_names)
     uncertainty_pct = (
         (uncertain_stage_count / total_stage_count) * 100
@@ -1839,17 +1880,12 @@ elif step.startswith("5"):
         else 0.0
     )
 
-    if uncertainty_pct > 30:
-        uncertainty_color = "#c62828"  # red
-        uncertainty_label = "High uncertainty"
-    elif uncertainty_pct > 10:
-        uncertainty_color = "#f57c00"  # orange
-        uncertainty_label = "Moderate uncertainty"
-    else:
-        uncertainty_color = "#2e7d32"  # green
-        uncertainty_label = "Low uncertainty"
+    uncertainty_color = "#64748b"  # neutral: presence of flags, not severity
+    uncertainty_label = "Stages with flagged knowledge gaps"
 
-    st.markdown("#### Uncertainty barometer")
+    st.markdown("#### Flagged uncertainty by stage")
+    st.caption("Share of assessed stages with at least one 'I don't know' or "
+               "'Yet to be researched' flag. This is not an uncertainty severity score.")
     st.markdown(
         f"""
         <div style="border:1px solid #e4e4e7;border-radius:14px;padding:1rem 1.25rem;background:#fafafa;">
@@ -1868,9 +1904,8 @@ elif step.startswith("5"):
         """,
         unsafe_allow_html=True,
     )
-    st.warning(
-        "Be careful, the unknown stages might be important to your early stage development."
-    )
+    if missing_cell_count:
+        st.warning("Check unscored factors before interpreting hotspot ranks or scenario comparisons.")
     
     # --- Trade-offs & what-if scenarios ---
     st.markdown("##  Trade-offs & what-if scenarios")
@@ -1967,9 +2002,15 @@ elif step.startswith("5"):
                 # 3) Recompute scenario averages across *all* changed stages
                 scenario_avg_stage = dict(avg_stage)  # start from baseline
 
+                active_grid = project.assessment_grid()
                 for stg, fac_scores in project.scenario_scores.items():
-                    if fac_scores:
-                        scenario_avg_stage[stg] = round(statistics.mean(fac_scores.values()), 1)
+                    if stg not in active_grid:
+                        continue
+                    valid_factors = set(active_grid[stg])
+                    scores = [float(value) for factor, value in fac_scores.items()
+                              if factor in valid_factors and value is not None]
+                    if scores:
+                        scenario_avg_stage[stg] = statistics.mean(scores)
 
                 # Overall scenario score based on all modified stages
                 scenario_overall_vals = [
@@ -1990,7 +2031,7 @@ elif step.startswith("5"):
 
                 # ✅ NEW: scenario averages by factor (taking overrides into account)
                 scenario_factor_values: Dict[str, List[float]] = {}
-                for stg, facs in project.grid.items():
+                for stg, facs in project.assessment_grid().items():
                     scen_for_stage = project.scenario_scores.get(stg, {})
                     for fname, fs in facs.items():
                         # If there is a scenario score for this (stage, factor), use it; otherwise baseline
@@ -2178,21 +2219,34 @@ elif step.startswith("5"):
         "description": project.description,
         "trl": project.trl,
         "assumptions": project.assumptions,
-        "lifecycle_stages": project.lifecycle_stages,
-        "lifecycle_changed": project.lifecycle_changed,
+        "lifecycle_stages": project.assessment_stages(),
+        "lifecycle_changed": {s: project.lifecycle_changed.get(s, False)
+                              for s in project.assessment_stages()},
         "selected_factors": project.selected_factors,
         "grid": {
             stage: {f: asdict(fs) for f, fs in fdict.items()}
-            for stage, fdict in project.grid.items()
+            for stage, fdict in project.assessment_grid().items()
         },
         "to_research": collect_to_research(project),
+        "unknown_factors": collect_unknown_factors(project),
+        "coverage": {
+            "assessed_cells": assessed_cell_count,
+            "scored_cells": assessed_cell_count - missing_cell_count,
+            "unscored_cells": missing_cell_count,
+            "explicitly_flagged_cells": flagged_cell_count,
+        },
         "averages": {
             "by_stage": avg_stage,
             "by_factor": avg_factor,
             "overall": overall,
         },
         "tradeoff_notes": project.tradeoff_notes,
-        "scenario_scores": project.scenario_scores,
+        "scenario_scores": {
+            stage: {factor: score for factor, score in fac_scores.items()
+                    if factor in project.assessment_grid().get(stage, {})}
+            for stage, fac_scores in project.scenario_scores.items()
+            if stage in project.assessment_stages()
+        },
     }
 
     # Put the two exports side-by-side like small cards
@@ -2243,10 +2297,21 @@ elif step.startswith("5"):
         if tr:
             for stage, factors in tr.items():
                 lines.append(f"### {stage}")
-                for f in factors:
-                    lines.append(f"- {f}")
+                for factor, note in factors:
+                    lines.append(f"- {factor}" + (f": {note}" if note else ""))
         else:
             lines.append("_None flagged._")
+        lines.append("")
+        lines.append("## I don't know")
+        unk = collect_unknown_factors(project)
+        if unk:
+            for stage, factors in unk.items():
+                lines.append(f"### {stage}")
+                for factor, note in factors:
+                    lines.append(f"- {factor}" + (f": {note}" if note else ""))
+        else:
+            lines.append("_None flagged._")
+        lines.append("")
         lines.append("## Scores")
         lines.append(
             f"- **Overall score:** {overall if overall is not None else 'n/a'}"
@@ -2301,7 +2366,7 @@ elif step.startswith("5"):
             lines.append(project.tradeoff_notes.strip())
             lines.append("")
         lines.append(
-            "_Score guide — 1: Much Better • 2: Better • 3: Equal • 4: Worse • 5: Much Worse._"
+            "_Score guide — 1: Much Worse • 2: Worse • 3: Equal • 4: Better • 5: Much Better._"
         )
         lines.append("")
         lines.append("## Assumptions")
