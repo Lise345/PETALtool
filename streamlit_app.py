@@ -917,29 +917,13 @@ def seed_flower_overlay(baseline_cat_avg: dict, scenario_cat_avg: dict,
             ),
         ),
         font=dict(size=17, family="Arial, sans-serif"),
-        margin=dict(t=85, r=45, b=205, l=45),
+        margin=dict(t=85, r=45, b=140, l=45),
         showlegend=True,
         legend=dict(orientation="h", yanchor="top", y=-0.05,
                     xanchor="center", x=0.5, font=dict(size=17)),
         paper_bgcolor="white",
         plot_bgcolor="white",
     )
-    # Explicit numbers are included *inside the exported image* so they
-    # remain visible in a paper even when the plot is not interactive.
-    comparative_values = []
-    for cat in cats:
-        b_val = baseline_cat_avg.get(cat, float("nan"))
-        s_val = scenario_cat_avg.get(cat, float("nan"))
-        b_label = f"{b_val:.2f}" if b_val is not None and math.isfinite(b_val) else "n/a"
-        s_label = f"{s_val:.2f}" if s_val is not None and math.isfinite(s_val) else "n/a"
-        comparative_values.append(f"{cat}: baseline {b_label} \u2192 scenario {s_label}")
-    fig.add_annotation(
-        text="<br>".join(comparative_values),
-        x=0.5, y=-0.21, xref="paper", yref="paper",
-        showarrow=False, align="center",
-        font=dict(size=17, color="#111827", family="Arial, sans-serif"),
-    )
-
     return fig
 
 def seed_flower_petal_chart(category_avg: dict, title=""):
@@ -1010,15 +994,12 @@ def seed_flower_petal_chart(category_avg: dict, title=""):
         fig.add_trace(go.Scatterpolar(
             r=[r_max],
             theta=[theta_centers[cat]],
-            mode="markers+text",
+            mode="markers",
             marker=dict(
                 size=12,
                 color="#6b7280",        # neutral grey
                 line=dict(width=0),
             ),
-            text=[f"{score:.2f}" if score is not None and math.isfinite(score) else "n/a"],
-            textfont=dict(size=20, color="#111827", family="Arial, sans-serif"),
-            textposition="top center",
             hovertemplate=hover,
             showlegend=False,
         ))
