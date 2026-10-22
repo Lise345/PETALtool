@@ -269,22 +269,33 @@ SCORE_COLORS = {
 # -------------------------------
 # High-resolution chart export
 # -------------------------------
-def plot_export_config(filename: str, width: int = 1800, height: int = 1400) -> dict:
-    """Offer publication-quality PNGs via Plotly's camera icon in the chart toolbar.
+def plot_export_config(
+    filename: str,
+    width: int = 1800,
+    height: int = 1400,
+    *,
+    image_format: str = "png",
+    scale: int = 2,
+) -> dict:
+    """Configure Plotly's client-side image export (camera toolbar icon).
 
-    Resolution = width x height multiplied by scale, i.e. 3600 x 2800
-    for the default values. This uses Plotly's browser-side exporter and
-    does not require Kaleido or a server-side image-rendering dependency.
+    For publication petal plots we export from a *smaller layout* (1100 x 920)
+    at scale 4, producing 4400 x 3680 PNG pixels if the browser permits.
+    This preserves larger text relative to figure size when inserted into a
+    document. Unlike changing figure fonts, it does not alter the screen view.
+    SVG is a vector option; it stays sharp at any publication size.
     """
+    if image_format not in ("png", "svg"):
+        raise ValueError("image_format must be 'png' or 'svg'")
     return {
         "displayModeBar": True,
         "displaylogo": False,
         "toImageButtonOptions": {
-            "format": "png",
+            "format": image_format,
             "filename": filename,
             "width": width,
             "height": height,
-            "scale": 2,
+            "scale": scale if image_format == "png" else 1,
         },
     }
 
@@ -1724,6 +1735,21 @@ elif step.startswith("5"):
         "Review the scores, explore what-if scenarios with your stakeholders,"
         " and capture the trade-offs you are willing to accept."
     )
+    # Export controls: only affect the file created by the Plotly camera icon.
+    # The interactive on-screen plots keep their existing sizes and fonts.
+    with st.expander("Publication image download settings", expanded=False):
+        petal_download_svg = st.checkbox(
+            "Download petal plots as vector SVG (instead of high-resolution PNG)",
+            key="petal_download_svg",
+            help="SVG stays sharp when resized in Word or in a journal submission.",
+        )
+        st.caption(
+            "Use each petal chart's camera icon to save it. PNG exports at "
+            "4400 × 3680 pixels where supported; tick this option for "
+            "resolution-independent SVG. The charts on screen do not change."
+        )
+    petal_image_format = "svg" if petal_download_svg else "png"
+
     # --- Guard: need 3×3 selected factors ---
     all9 = (
         project.selected_factors.get("Environmental", [])
@@ -1788,7 +1814,7 @@ elif step.startswith("5"):
                "3 at the dotted reference ring (equal), 5 at the outer edge (better). "
                "Colour bands: red <2.5, orange 2.5-3.5, green >3.5; grey = unscored.")
     st.plotly_chart(seed_flower_petal_chart(cat_avg), use_container_width=True,
-                    config=plot_export_config("PETAL_sustainability_petal", 1800, 1500))
+                    config=plot_export_config("PETAL_sustainability_petal", 1100, 920, image_format=petal_image_format, scale=4))
 
 
     # --- Overview card ---
@@ -2256,7 +2282,7 @@ elif step.startswith("5"):
         st.plotly_chart(
             seed_flower_overlay(baseline_cat, scenario_cat, color_by="baseline"),
             use_container_width=True,
-            config=plot_export_config("PETAL_baseline_scenario_petals", 1800, 1500),
+            config=plot_export_config("PETAL_baseline_scenario_petals", 1100, 920, image_format=petal_image_format, scale=4),
         )
         scenario_changes = any(
             abs(float(value) - float(project.grid.get(stage, {}).get(factor).score)) > 1e-9
