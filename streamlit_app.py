@@ -267,6 +267,28 @@ SCORE_COLORS = {
 }
 
 # -------------------------------
+# High-resolution chart export
+# -------------------------------
+def plot_export_config(filename: str, width: int = 1800, height: int = 1400) -> dict:
+    """Offer publication-quality PNGs via Plotly's camera icon in the chart toolbar.
+
+    Resolution = width x height multiplied by scale, i.e. 3600 x 2800
+    for the default values. This uses Plotly's browser-side exporter and
+    does not require Kaleido or a server-side image-rendering dependency.
+    """
+    return {
+        "displayModeBar": True,
+        "displaylogo": False,
+        "toImageButtonOptions": {
+            "format": "png",
+            "filename": filename,
+            "width": width,
+            "height": height,
+            "scale": 2,
+        },
+    }
+
+# -------------------------------
 # Data model
 # -------------------------------
 @dataclass
@@ -466,7 +488,8 @@ def render_landing():
     with c2:
         st.markdown("#### Sustainable design paradox")
         st.caption("We know most about impacts when it’s hardest to change the design — act early.")
-        st.plotly_chart(_design_paradox_fig(), use_container_width=True)
+        st.plotly_chart(_design_paradox_fig(), use_container_width=True,
+                        config=plot_export_config("PETAL_design_paradox", 1600, 1050))
 
     # Three mini cards
     st.markdown("#### How it works")
@@ -874,7 +897,8 @@ def seed_flower_overlay(baseline_cat_avg: dict, scenario_cat_avg: dict,
                 range=[0, 1],
                 tickmode="array",
                 tickvals=[0.0, 0.5, 1.0],
-                ticktext=["1", "3", "5"],   # (your semantics shown; adjust if you want)
+                ticktext=["1", "3", "5"],
+                tickfont=dict(size=22, color="#111827", family="Arial, sans-serif"),
                 showline=False,
             ),
             angularaxis=dict(
@@ -882,9 +906,9 @@ def seed_flower_overlay(baseline_cat_avg: dict, scenario_cat_avg: dict,
                 tickvals=[theta_centers[c] for c in cats],
                 ticktext=cats,
                 tickfont=dict(
-                    size=16,        
-                    color="black",    
-                    family="Arial, sans-serif",  # optional
+                    size=20,
+                    color="#111827",
+                    family="Arial, sans-serif",
                     ),
                 ticklabelstep=1,
                 ticklen=8,
@@ -892,9 +916,28 @@ def seed_flower_overlay(baseline_cat_avg: dict, scenario_cat_avg: dict,
                 direction="clockwise",
             ),
         ),
-        margin=dict(t=60, r=30, b=90, l=30),
+        font=dict(size=17, family="Arial, sans-serif"),
+        margin=dict(t=85, r=45, b=205, l=45),
         showlegend=True,
-        legend=dict(orientation="h", yanchor="top", y=-0.08, xanchor="center", x=0.5),
+        legend=dict(orientation="h", yanchor="top", y=-0.05,
+                    xanchor="center", x=0.5, font=dict(size=17)),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+    )
+    # Explicit numbers are included *inside the exported image* so they
+    # remain visible in a paper even when the plot is not interactive.
+    comparative_values = []
+    for cat in cats:
+        b_val = baseline_cat_avg.get(cat, float("nan"))
+        s_val = scenario_cat_avg.get(cat, float("nan"))
+        b_label = f"{b_val:.2f}" if b_val is not None and math.isfinite(b_val) else "n/a"
+        s_label = f"{s_val:.2f}" if s_val is not None and math.isfinite(s_val) else "n/a"
+        comparative_values.append(f"{cat}: baseline {b_label} \u2192 scenario {s_label}")
+    fig.add_annotation(
+        text="<br>".join(comparative_values),
+        x=0.5, y=-0.21, xref="paper", yref="paper",
+        showarrow=False, align="center",
+        font=dict(size=17, color="#111827", family="Arial, sans-serif"),
     )
 
     return fig
@@ -969,10 +1012,12 @@ def seed_flower_petal_chart(category_avg: dict, title=""):
             theta=[theta_centers[cat]],
             mode="markers+text",
             marker=dict(
-                size=10,
+                size=12,
                 color="#6b7280",        # neutral grey
                 line=dict(width=0),
             ),
+            text=[f"{score:.2f}" if score is not None and math.isfinite(score) else "n/a"],
+            textfont=dict(size=20, color="#111827", family="Arial, sans-serif"),
             textposition="top center",
             hovertemplate=hover,
             showlegend=False,
@@ -985,7 +1030,8 @@ def seed_flower_petal_chart(category_avg: dict, title=""):
                 range=[0, 1],
                 tickmode="array",
                 tickvals=[0.0, 0.5, 1.0],
-                ticktext=["1 (centre)", "3 (reference)", "5 (outer)"],
+                ticktext=["1", "3", "5"],
+                tickfont=dict(size=22, color="#111827", family="Arial, sans-serif"),
                 showline=False,
             ),
             angularaxis=dict(
@@ -993,15 +1039,18 @@ def seed_flower_petal_chart(category_avg: dict, title=""):
                 tickvals=[theta_centers[c] for c in cats],
                 ticktext=cats,
                 tickfont=dict(
-                    size=16,      
-                    color="black",   
-                    family="Arial, sans-serif",  # optional
+                    size=20,
+                    color="#111827",
+                    family="Arial, sans-serif",
                     ),
                 rotation=90,
                 direction="clockwise",
             ),
         ),
-        margin=dict(t=60, r=30, b=30, l=30),
+        font=dict(size=17, family="Arial, sans-serif"),
+        margin=dict(t=85, r=45, b=75, l=45),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
     )
 
     return fig
@@ -1753,10 +1802,12 @@ elif step.startswith("5"):
         st.caption(f"Coverage: all {assessed_cell_count} assessed factor-stage cells scored.")
 
     st.markdown("#### Trade-offs at a glance")
+    st.caption("Use the camera icon in each chart toolbar to download a high-resolution PNG. ")
     st.caption("Petal radius increases with score: 1 near the centre (worse), "
                "3 at the dotted reference ring (equal), 5 at the outer edge (better). "
                "Colour bands: red <2.5, orange 2.5-3.5, green >3.5; grey = unscored.")
-    st.plotly_chart(seed_flower_petal_chart(cat_avg), use_container_width=True)
+    st.plotly_chart(seed_flower_petal_chart(cat_avg), use_container_width=True,
+                    config=plot_export_config("PETAL_sustainability_petal", 1800, 1500))
 
 
     # --- Overview card ---
@@ -1802,7 +1853,8 @@ elif step.startswith("5"):
         st.markdown("#### Average by lifecycle stage")
         st.caption("Scores relative to 3: left = worse, right = better.")
         fig1 = horizontal_delta_bar(stage_plot, "Average by lifecycle stage")
-        st.plotly_chart(fig1, use_container_width=True)
+        st.plotly_chart(fig1, use_container_width=True,
+                        config=plot_export_config("PETAL_lifecycle_stage_scores", 1800, 1400))
         with st.expander("Stage averages", expanded=False):
             st.markdown("##### Table: stage averages")
             st.dataframe(stage_df, use_container_width=True)
@@ -1811,7 +1863,8 @@ elif step.startswith("5"):
         st.markdown("#### Average by factor")
         st.caption("Factor-level averages across all scored stages.")
         fig2 = horizontal_delta_bar(factor_plot, "Average by factor")
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, use_container_width=True,
+                        config=plot_export_config("PETAL_factor_scores", 1800, 1400))
         with st.expander("Factor averages", expanded=False):
             st.markdown("##### Table: factor averages")
             st.dataframe(factor_df, use_container_width=True)
@@ -2196,6 +2249,7 @@ elif step.startswith("5"):
                             "Scenario vs baseline — lifecycle stage",
                         ),
                         use_container_width=True,
+                        config=plot_export_config("PETAL_scenario_lifecycle_scores", 1800, 1400),
                     )
 
                 with tab_s_factor:
@@ -2208,6 +2262,7 @@ elif step.startswith("5"):
                             "Scenario vs baseline — factors",
                         ),
                         use_container_width=True,
+                        config=plot_export_config("PETAL_scenario_factor_scores", 1800, 1400),
                     )
 
         baseline_cat = category_means(project, avg_factor)
@@ -2219,7 +2274,8 @@ elif step.startswith("5"):
                    "for higher qualitative scores (1 centre; 3 reference; 5 outer edge).")
         st.plotly_chart(
             seed_flower_overlay(baseline_cat, scenario_cat, color_by="baseline"),
-            use_container_width=True
+            use_container_width=True,
+            config=plot_export_config("PETAL_baseline_scenario_petals", 1800, 1500),
         )
         scenario_changes = any(
             abs(float(value) - float(project.grid.get(stage, {}).get(factor).score)) > 1e-9
