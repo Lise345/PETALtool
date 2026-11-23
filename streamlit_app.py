@@ -168,6 +168,21 @@ def inject_theme() -> None:
       .petal-hint {color:var(--muted);font-size:.82rem;}
       .petal-footer-note {padding:1.2rem 0 0;border-top:1px solid var(--line);
           color:#8D8B86;font-size:.77rem;}
+      .petal-score-guide {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.55rem;margin:.55rem 0 1rem;}
+      .petal-score-guide .item {background:#fff;border:1px solid var(--line);border-radius:14px;padding:.75rem .65rem;min-height:86px;}
+      .petal-score-guide .num {display:inline-flex;align-items:center;justify-content:center;width:1.9rem;height:1.9rem;
+          border-radius:999px;font-weight:800;font-size:.9rem;margin-bottom:.5rem;color:#fff;}
+      .petal-score-guide .lab {display:block;font-size:.8rem;font-weight:700;color:var(--ink);line-height:1.35;}
+      .petal-score-guide .sub {display:block;font-size:.73rem;color:var(--muted);line-height:1.4;margin-top:.18rem;}
+      .petal-score-guide .i1 .num {background:#D6463C;}
+      .petal-score-guide .i2 .num {background:#E97A2E;}
+      .petal-score-guide .i3 .num {background:#8E8C87;}
+      .petal-score-guide .i4 .num {background:#56B975;}
+      .petal-score-guide .i5 .num {background:#24BB7A;}
+      .petal-assumption-box {border:1px solid var(--line);border-radius:16px;background:#fff;padding:1rem 1rem .85rem;margin:1rem 0 1.1rem;}
+      .petal-assumption-box h4 {margin:.1rem 0 .25rem;font-size:1rem;}
+      .petal-assumption-box p {margin:0;color:var(--muted);font-size:.84rem;line-height:1.55;}
+
       @media (min-width: 980px) {
           [data-testid="stSidebar"] {min-width:330px!important; max-width:330px!important;}
           [data-testid="collapsedControl"] {display:none;}
@@ -868,6 +883,52 @@ def assumptions_sidebar_block(project):
                 project.assumptions.pop()
                 st.rerun()
 
+def render_score_guide():
+    st.markdown(
+        """<div class=\"petal-score-guide\">
+            <div class=\"item i1\"><span class=\"num\">1</span><span class=\"lab\">Measurably worse</span><span class=\"sub\">Clear evidence of worse performance than the reference.</span></div>
+            <div class=\"item i2\"><span class=\"num\">2</span><span class=\"lab\">Possibly worse</span><span class=\"sub\">Likely worse, but with limited evidence or confidence.</span></div>
+            <div class=\"item i3\"><span class=\"num\">3</span><span class=\"lab\">Equal</span><span class=\"sub\">Roughly comparable to the reference product.</span></div>
+            <div class=\"item i4\"><span class=\"num\">4</span><span class=\"lab\">Possibly better</span><span class=\"sub\">Likely better, but evidence is still incomplete.</span></div>
+            <div class=\"item i5\"><span class=\"num\">5</span><span class=\"lab\">Measurably better</span><span class=\"sub\">Clear evidence of better performance than the reference.</span></div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+
+
+def assumptions_editor(project, context_key: str, title: str = "Assumptions"):
+    st.markdown(
+        f"""<div class=\"petal-assumption-box\"><h4>{html_escape(title)}</h4>
+        <p>Record assumptions that are shaping the scoring. Add them while discussing the current stage if helpful.</p></div>""",
+        unsafe_allow_html=True,
+    )
+    input_key = f"{project.name}_{context_key}_assumption_input"
+    button_key = f"{project.name}_{context_key}_assumption_add"
+    cols = st.columns([4.5, 1.1], vertical_alignment="bottom")
+    with cols[0]:
+        new_assumption = st.text_input(
+            "Add assumption",
+            key=input_key,
+            placeholder="e.g. Maintenance frequency remains similar to the reference product",
+            label_visibility="collapsed",
+        )
+    with cols[1]:
+        if st.button("Add", key=button_key, use_container_width=True):
+            value = (new_assumption or "").strip()
+            if value:
+                project.assumptions.append(value)
+                st.session_state[input_key] = ""
+                st.rerun()
+    if project.assumptions:
+        for idx, value in enumerate(project.assumptions, 1):
+            st.markdown(f"- {idx}. {html_escape(value)}")
+        if st.button("Undo last assumption", key=f"{project.name}_{context_key}_undo_assumption"):
+            project.assumptions.pop()
+            st.rerun()
+    else:
+        st.caption("No assumptions recorded yet.")
+
+
 def collect_to_research(project):
     out = {}
 
@@ -943,8 +1004,8 @@ def _petal_base() -> go.Figure:
                 range=[0, 1],
                 tickmode="array",
                 tickvals=[0.0, 0.5, 1.0],
-                ticktext=["1", "3", "5"],
-                tickfont=dict(size=16, color=PALETTE["ink"], family=PLOT_FONT),
+                ticktext=["", "", ""],
+                ticks="",
                 gridcolor="#EEEDE8",
                 gridwidth=1,
                 showline=False,
@@ -961,6 +1022,14 @@ def _petal_base() -> go.Figure:
                 showline=False,
             ),
         ),
+        annotations=[
+            dict(text="1", x=0.5, y=0.50, xref="paper", yref="paper", showarrow=False,
+                 font=dict(size=13, color=PALETTE["ink"], family=PLOT_FONT)),
+            dict(text="3", x=0.5, y=0.735, xref="paper", yref="paper", showarrow=False,
+                 font=dict(size=13, color=PALETTE["ink"], family=PLOT_FONT)),
+            dict(text="5", x=0.5, y=0.94, xref="paper", yref="paper", showarrow=False,
+                 font=dict(size=13, color=PALETTE["ink"], family=PLOT_FONT)),
+        ],
         showlegend=False,
         margin=dict(t=55, r=50, b=95, l=50),
     )
@@ -995,7 +1064,10 @@ def seed_flower_petal_chart(category_avg: dict, title: str = ""):
             hovertemplate=hover,
             showlegend=False,
         ))
-    fig.update_layout(title=dict(text=title, font=dict(size=18)) if title else None)
+    if title:
+        fig.update_layout(title=dict(text=title, font=dict(size=18)))
+    else:
+        fig.update_layout(title=dict(text=""))
     return style_plot(fig, height=470)
 
 
@@ -1038,7 +1110,10 @@ def seed_flower_overlay(baseline_cat_avg: dict, scenario_cat_avg: dict,
                 showlegend=False,
             ))
 
-    fig.update_layout(title=dict(text=title, font=dict(size=18)) if title else None)
+    if title:
+        fig.update_layout(title=dict(text=title, font=dict(size=18)))
+    else:
+        fig.update_layout(title=dict(text=""))
     return style_plot(fig, height=465)
 
 
@@ -1422,8 +1497,9 @@ elif step == 3:
     stage_flagged = sum(fs.unknown or fs.to_research for fs in stage_records)
     st.caption(f"{stage_scored} of 9 factors scored  ·  {stage_flagged} flagged for follow-up" +
                ("  ·  This stage is expected to change" if project.lifecycle_changed.get(stage,False) else ""))
-    st.markdown('''<div class="petal-scale-strip"><span>1 · Measurably worse</span><span>2 · Possibly worse</span>
-        <span>3 · Equal</span><span>4 · Possibly better</span><span>5 · Measurably better</span></div>''',unsafe_allow_html=True)
+    st.markdown("#### Scoring scale")
+    render_score_guide()
+    assumptions_editor(project, context_key="scoring", title="Working assumptions")
 
     tab_env,tab_soc,tab_econ = st.tabs(["Environmental","Social","Economic"])
     factor_definitions = {
