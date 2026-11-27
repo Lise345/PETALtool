@@ -42,7 +42,7 @@ PALETTE = {
 }
 PLOT_FONT = "Inter, ui-sans-serif, system-ui, Segoe UI, sans-serif"
 DIMENSION_COLORS = {k: PALETTE[k.lower()] for k in ("Environmental", "Social", "Economic")}
-LOGO_MARK = APP_ROOT / "assets" / "petal_mark.png"
+LOGO_MARK = APP_ROOT / "assets" / "petal_logo.svg"
 
 
 def mark_data() -> str:
