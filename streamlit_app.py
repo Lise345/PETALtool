@@ -42,15 +42,15 @@ PALETTE = {
 }
 PLOT_FONT = "Inter, ui-sans-serif, system-ui, Segoe UI, sans-serif"
 DIMENSION_COLORS = {k: PALETTE[k.lower()] for k in ("Environmental", "Social", "Economic")}
-LOGO_MARK = APP_ROOT / "assets" / "petal_logo.svg"
+LOGO_SVG = APP_ROOT / "assets" / "petal_logo.svg"
 
 
-def mark_data() -> str:
-    """The supplied PETAL mark, prepared as a transparent sidebar/hero asset."""
-    if not LOGO_MARK.exists():
-        return ""
-    import base64
-    return "data:image/png;base64," + base64.b64encode(LOGO_MARK.read_bytes()).decode("ascii")
+def render_official_logo() -> None:
+    """Display the exact PETAL SVG supplied with the project, without substitutes."""
+    if not LOGO_SVG.is_file():
+        st.error("PETAL logo missing: assets/petal_logo.svg")
+        return
+    st.image(str(LOGO_SVG), use_container_width=True)
 
 
 def inject_theme() -> None:
@@ -194,12 +194,6 @@ def inject_theme() -> None:
           .petal-flow {grid-template-columns:repeat(2,minmax(0,1fr));}
       }
     </style>""", unsafe_allow_html=True)
-
-
-def brand_markup() -> str:
-    img = f'<img src="{mark_data()}" alt="PETAL three-petal logo" />' if mark_data() else '<span>✿</span>'
-    return (f'<div class="petal-lockup">{img}'
-            '<div><strong>PETAL</strong><small>ASSESSMENT WORKSPACE</small></div></div>')
 
 
 def render_step_header(number: int, title: str, description: str) -> None:
@@ -648,16 +642,18 @@ def import_project_json(uploaded) -> Project:
 
 
 def render_landing():
-    visual = (f'<img class="petal-hero-mark" src="{mark_data()}" alt="PETAL flower mark">'
-              if mark_data() else '<span style="font-size:7rem;color:#24BB7A">✿</span>')
-    st.markdown(f"""
-      <div class="petal-home-hero">
-        <div><span class="kicker">PETAL / EARLY-STAGE SUSTAINABILITY</span>
-          <h1>Make better sustainability choices while change is still possible.</h1>
-          <p>PETAL helps teams scope an early-stage technology, select the most relevant sustainability factors,
-          record what is known, and discuss trade-offs before a full assessment is feasible.</p>
-        </div><div>{visual}</div>
-      </div>""",unsafe_allow_html=True)
+    # Keep the original full wordmark visible, not an invented flower icon.
+    with st.container(border=True, key="petal_landing_hero"):
+        introduction, logo_area = st.columns([1.35, 1], gap="large", vertical_alignment="center")
+        with introduction:
+            st.caption("PETAL / EARLY-STAGE SUSTAINABILITY")
+            st.markdown("## Make better sustainability choices while change is still possible.")
+            st.write(
+                "PETAL helps teams scope an early-stage technology, select relevant sustainability "
+                "factors, record what is known, and discuss trade-offs before a full assessment is feasible."
+            )
+        with logo_area:
+            render_official_logo()
 
     new_col, resume_col = st.columns(2,gap="large")
     with new_col:
@@ -1169,7 +1165,7 @@ if "step_idx" not in st.session_state:
 
 inject_theme()
 with st.sidebar:
-    st.markdown(brand_markup(),unsafe_allow_html=True)
+    render_official_logo()
     current_key = st.session_state.get("active_project")
     current = st.session_state.projects.get(current_key) if current_key else None
     if current is not None:
